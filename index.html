@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panne Spot</title>
+<meta name="theme-color" content="#FCFFA5">
+<meta name="description" content="Panne Spot: notes, images and videos saved on your device.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Panne Spot">
+<link rel="stylesheet" href="tailwind.css">
+<link rel="stylesheet" href="fonts.css">
+<script src="vendor/dexie.min.js"></script>
+<style>
+/* Theme tokens: only three colors drive the whole UI. Everything else is derived with color-mix(). */
+:root{--bg:#EEF0FB;--surface:#FFFFFF;--ink:#3B2F5C;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root{--bg:#121214;--surface:#1D1D22;--ink:#E9E7F2;color-scheme:dark}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:Figtree,system-ui,sans-serif;transition:background-color .35s,color .35s}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:12}
+h1,h2,h3,h4,.disp{font-family:"Bricolage Grotesque",Figtree,system-ui,sans-serif;letter-spacing:-.02em}
+i{display:inline-flex;font-style:normal}
+[hidden]{display:none!important}
+:root:lang(zh) *{letter-spacing:normal}
+.mute{color:color-mix(in srgb,var(--ink) 62%,transparent)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.btn{display:inline-flex;align-items:center;gap:.45rem;border-radius:999px;padding:.55rem 1rem;font-weight:600;cursor:pointer;transition:transform .15s,background-color .25s,color .25s}
+.btn:active{transform:scale(.96)}
+.pri{background:var(--ink);color:var(--bg)}
+.sec{background:color-mix(in srgb,var(--ink) 10%,transparent);color:var(--ink)}
+.chip{flex:none;border-radius:999px;padding:.35rem .95rem;font-weight:500;cursor:pointer;background:color-mix(in srgb,var(--ink) 9%,transparent);transition:background-color .25s,color .25s}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+#top{position:sticky;top:env(safe-area-inset-top,0px);z-index:11;background:var(--bg);transition:background-color .35s}
+.logo{position:relative;flex:none;width:36px;height:36px;border-radius:12px;display:grid;place-items:center;overflow:hidden;background:var(--ink);color:var(--bg);font:700 18px "Bricolage Grotesque",sans-serif}
+.logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fld{width:100%;border-radius:16px;padding:.65rem .9rem;background:color-mix(in srgb,var(--ink) 8%,transparent);color:inherit;border:1px solid transparent;transition:border-color .2s}
+.fld:focus{outline:none;border-color:var(--ink)}
+.fld::placeholder{color:color-mix(in srgb,var(--ink) 50%,transparent)}
+/* Masonry */
+.grid-m{columns:1;column-gap:16px}
+@media(min-width:540px){.grid-m{columns:2}}@media(min-width:860px){.grid-m{columns:3}}@media(min-width:1180px){.grid-m{columns:4}}
+.card{position:relative;break-inside:avoid;margin:0 0 16px;background:var(--surface);border-radius:22px;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 14%,transparent),0 10px 24px -16px color-mix(in srgb,var(--ink) 40%,transparent);transition:transform .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s,background-color .35s}
+.card:hover,.card:focus-visible{transform:translateY(-4px);box-shadow:0 2px 4px color-mix(in srgb,var(--ink) 14%,transparent),0 22px 36px -18px color-mix(in srgb,var(--ink) 50%,transparent)}
+.card img,.card video{display:block;width:100%;height:auto}
+.badge{position:absolute;top:10px;left:10px;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--surface);color:var(--ink)}
+.pad{padding:14px 16px 16px}
+.tag{font-size:.75rem;padding:.1rem .6rem;border-radius:99px;background:color-mix(in srgb,var(--ink) 9%,transparent);cursor:pointer}
+.prose p{margin:.3em 0}.prose h4{font-size:1.05rem;font-weight:700;margin:.7em 0 .2em}.prose li{margin-left:1.1em;display:list-item;list-style:disc}.prose code{background:color-mix(in srgb,var(--ink) 10%,transparent);padding:0 .3em;border-radius:6px}
+.clip{max-height:11em;overflow:hidden;-webkit-mask-image:linear-gradient(#000 72%,transparent);mask-image:linear-gradient(#000 72%,transparent)}
+/* Dialogs */
+dialog{border:0;border-radius:28px;padding:0;overflow:auto;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px);box-shadow:0 30px 80px -20px rgba(0,0,0,.5)}
+dialog[open]{animation:pop .3s cubic-bezier(.2,.9,.3,1.1)}
+dialog::backdrop{background:color-mix(in srgb,var(--bg) 35%,rgba(12,9,24,.65));backdrop-filter:blur(6px)}
+#vw{width:min(880px,calc(100vw - 24px))}
+.vm{display:block;width:100%;max-height:66dvh;object-fit:contain;background:color-mix(in srgb,var(--ink) 8%,transparent)}
+#e-pv .vm{max-height:220px;border-radius:16px}
+input[type=color]{width:48px;height:34px;border:0;padding:0;background:none;cursor:pointer;border-radius:10px}
+.pre{display:flex;align-items:center;gap:.55rem;padding:.75rem .9rem;border-radius:16px;font-weight:600;cursor:pointer;border:1px solid color-mix(in srgb,currentColor 25%,transparent)}
+.dot{width:18px;height:18px;border-radius:50%;border:2px solid currentColor}
+/* FAB */
+#fab{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+#fab-b{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;cursor:pointer;box-shadow:0 14px 28px -10px color-mix(in srgb,var(--ink) 70%,transparent);transition:transform .2s}
+#fab-b svg{transition:transform .3s cubic-bezier(.2,.9,.3,1.3)}
+#fab.open #fab-b svg{transform:rotate(135deg)}
+.menu{display:flex;flex-direction:column;align-items:flex-end;gap:8px;opacity:0;visibility:hidden;transform:translateY(10px);transition:opacity .2s,transform .25s,visibility .25s}
+#fab.open .menu{opacity:1;visibility:visible;transform:none}
+.menu .btn{box-shadow:0 10px 20px -10px color-mix(in srgb,var(--ink) 70%,transparent)}
+/* Splash: background follows the theme's primary color */
+#splash{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:2rem;background:var(--bg);text-align:center;cursor:pointer;transition:opacity .7s ease,visibility .7s}
+#splash.out{opacity:0;visibility:hidden}
+#phrase{font-size:clamp(2.4rem,9vw,5.5rem);line-height:1;font-weight:700;max-width:11ch;text-wrap:balance;animation:rise 1s cubic-bezier(.2,.8,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}}
+@keyframes pop{from{opacity:0;transform:translateY(14px) scale(.97)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+<script>
+/* Apply saved theme before first paint so the splash screen already has the right background. */
+try{const t=JSON.parse(localStorage.getItem('ps-theme'));if(t)for(const k in t)document.documentElement.style.setProperty('--'+k,t[k])}catch(e){}
+</script>
+</head>
+<body>
+<div id="splash" role="presentation"><p id="phrase" class="disp"></p></div>
+
+<header id="top">
+  <div class="mx-auto flex max-w-[1400px] items-center gap-3 px-4 pt-3 pb-2">
+    <!-- Square app icon slot: drop a 1:1 image at /assets/icon.png; the letter shows until then -->
+    <span class="logo"><img src="icons/icon-192.png" alt="" onerror="this.remove()">P</span>
+    <h1 class="disp hidden text-xl font-bold sm:block">Panne Spot</h1>
+    <label class="relative flex-1">
+      <span class="mute absolute left-3.5 top-1/2 -translate-y-1/2"><i data-ic="search"></i></span>
+      <input id="q" class="fld" style="padding-left:2.6rem" type="search" data-tp="search" placeholder="Search titles, tags and notes" aria-label="Search">
+    </label>
+    <button id="set" class="btn sec" data-tl="options" aria-label="Theme settings"><i data-ic="sliders"></i></button>
+  </div>
+  <div id="chips" class="mx-auto flex max-w-[1400px] gap-2 overflow-x-auto px-4 pb-3"></div>
+</header>
+
+<main class="mx-auto max-w-[1400px] px-4 pt-3 pb-32">
+  <div id="feed" class="grid-m"></div>
+  <div id="empty" class="py-24 text-center" hidden></div>
+</main>
+
+<div id="fab">
+  <div class="menu">
+    <button class="btn pri" data-new="note"><i data-ic="note"></i><span data-t="newNote">New text note</span></button>
+    <button class="btn pri" data-new="image"><i data-ic="image"></i><span data-t="upImg">Upload image</span></button>
+    <button class="btn pri" data-new="video"><i data-ic="video"></i><span data-t="upVid">Upload video</span></button>
+  </div>
+  <button id="fab-b" class="pri" data-tl="create" aria-label="Create new" aria-expanded="false"><i data-ic="plus" data-s="28"></i></button>
+</div>
+<input type="file" id="fi" accept="image/*" hidden>
+<input type="file" id="fv" accept="video/*" hidden>
+
+<dialog id="vw"><div id="vw-b"></div></dialog>
+
+<dialog id="ed"><div class="grid gap-3 p-5">
+  <h2 id="e-h" class="disp text-2xl font-bold"></h2>
+  <div id="e-pv"></div>
+  <input id="e-title" class="fld" data-tp="title" placeholder="Title" maxlength="120" aria-label="Title">
+  <div><label id="e-bl" for="e-body" class="text-sm font-medium"></label><textarea id="e-body" rows="6" class="fld mt-1"></textarea></div>
+  <input id="e-tags" class="fld" data-tp="tags" placeholder="Tags, separated by commas" aria-label="Tags">
+  <div class="mt-1 flex flex-wrap gap-2">
+    <button class="btn pri" data-a="save" data-t="save">Save</button>
+    <button class="btn sec" data-a="close" data-t="cancel">Cancel</button>
+    <button id="e-del" class="btn sec ml-auto" data-a="del"><i data-ic="trash"></i><span id="e-dl">Delete</span></button>
+  </div>
+</div></dialog>
+
+<dialog id="st"><div class="p-5">
+  <div class="flex items-center justify-between"><h2 class="disp text-2xl font-bold" data-t="options">Options</h2><button class="btn sec" data-a="close" data-tl="close" aria-label="Close"><i data-ic="x"></i></button></div>
+  <p class="mute mt-1 text-sm" data-t="optHint">Language and colors apply instantly and stay saved on this device.</p>
+  <h3 class="mt-4 mb-2 text-sm font-medium" data-t="language">Language</h3>
+  <div id="langs" class="flex flex-wrap gap-2" role="group"></div>
+  <div id="pre" class="mt-4 grid grid-cols-2 gap-2"></div>
+  <div class="mt-5 grid gap-3">
+    <label class="flex items-center justify-between"><span data-t="cBg">Background and splash screen</span><input type="color" id="c-bg"></label>
+    <label class="flex items-center justify-between"><span data-t="cSurf">Cards</span><input type="color" id="c-surface"></label>
+    <label class="flex items-center justify-between"><span data-t="cInk">Text and accents</span><input type="color" id="c-ink"></label>
+  </div>
+  <div class="mt-5 flex flex-wrap gap-2"><button id="inst" class="btn pri" data-t="install" hidden>Install app</button><button id="rst" class="btn sec" data-t="reset">Reset to default</button></div>
+</div></dialog>
+
+<script>
+const $=s=>document.querySelector(s), R=document.documentElement;
+const IC={plus:'<path d="M5 12h14M12 5v14"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>',search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',sliders:'<path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/>',trash:'<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',pencil:'<path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',note:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8M10 9H8"/>',image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',video:'<rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 13 5.2 3.1a.5.5 0 0 0 .8-.4V8.3a.5.5 0 0 0-.8-.4L16 11"/>',play:'<path d="M7 4v16l13-8z" fill="currentColor"/>'};
+const ic=(n,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
+const icons=()=>document.querySelectorAll('[data-ic]:empty').forEach(e=>e.innerHTML=ic(e.dataset.ic,+e.dataset.s||18));
+icons();
+
+/* ---------- Languages: Vietnamese, English, Chinese ---------- */
+const T={
+en:{search:"Search titles, tags and notes",options:"Options",create:"Create new",newNote:"New text note",upImg:"Upload image",upVid:"Upload video",title:"Title",tags:"Tags, separated by commas",save:"Save",cancel:"Cancel",del:"Delete",del2:"Tap again to delete",newnote:"New note",newimage:"New image",newvideo:"New video",editnote:"Edit note",editimage:"Edit image",editvideo:"Edit video",noteLbl:"Note (Markdown works)",caption:"Caption",saveErr:"Could not save. Browser storage may be full or blocked.",optHint:"Language and colors apply instantly and stay saved on this device.",language:"Language",cBg:"Background and splash screen",cSurf:"Cards",cInk:"Text and accents",reset:"Reset to default",install:"Install app",all:"All",notes:"Notes",images:"Images",videos:"Videos",pre:["Soft pastel","Dark minimal","Warm peach","Mint"],emptyH:"Your spot is empty",emptyP:"Tap + to add a note, an image or a video.",noMatchH:"No matches",noMatchP:"Try another word or choose All.",storeH:"Storage is blocked",storeP:"Allow site data for this page so notes and media can be saved on your device.",open:"Open",image:"Image",edit:"Edit",close:"Close",saved:"Saved",edited:"edited",phrases:["Have a good day!","Beautifullll oh my god~","You ate it!","Stay creative!","Welcome back to your spot!"]},
+vi:{search:"Tìm theo tiêu đề, nhãn và nội dung",options:"Tùy chọn",create:"Tạo mới",newNote:"Ghi chú văn bản mới",upImg:"Tải ảnh lên",upVid:"Tải video lên",title:"Tiêu đề",tags:"Nhãn, cách nhau bằng dấu phẩy",save:"Lưu",cancel:"Hủy",del:"Xóa",del2:"Chạm lần nữa để xóa",newnote:"Ghi chú mới",newimage:"Ảnh mới",newvideo:"Video mới",editnote:"Sửa ghi chú",editimage:"Sửa ảnh",editvideo:"Sửa video",noteLbl:"Ghi chú (hỗ trợ Markdown)",caption:"Chú thích",saveErr:"Không thể lưu. Bộ nhớ trình duyệt có thể đã đầy hoặc bị chặn.",optHint:"Ngôn ngữ và màu sắc được áp dụng ngay và lưu trên thiết bị này.",language:"Ngôn ngữ",cBg:"Nền và màn hình khởi động",cSurf:"Thẻ",cInk:"Chữ và màu nhấn",reset:"Đặt lại mặc định",install:"Cài đặt ứng dụng",all:"Tất cả",notes:"Ghi chú",images:"Ảnh",videos:"Video",pre:["Pastel dịu","Tối giản","Cam đào ấm","Bạc hà"],emptyH:"Góc của bạn còn trống",emptyP:"Chạm + để thêm ghi chú, ảnh hoặc video.",noMatchH:"Không có kết quả",noMatchP:"Hãy thử từ khác hoặc chọn Tất cả.",storeH:"Bộ nhớ bị chặn",storeP:"Hãy cho phép trang này lưu dữ liệu để ghi chú và media được lưu trên thiết bị của bạn.",open:"Mở",image:"Ảnh",edit:"Sửa",close:"Đóng",saved:"Đã lưu",edited:"đã sửa",phrases:["Chúc bạn một ngày tốt lành!","Đẹp quá trời đất ơi~","Quá đỉnh luôn!","Cứ sáng tạo nhé!","Chào mừng trở lại góc nhỏ của bạn!"]},
+zh:{search:"搜索标题、标签和内容",options:"选项",create:"新建",newNote:"新建文字笔记",upImg:"上传图片",upVid:"上传视频",title:"标题",tags:"标签，用逗号分隔",save:"保存",cancel:"取消",del:"删除",del2:"再点一次即可删除",newnote:"新建笔记",newimage:"新建图片",newvideo:"新建视频",editnote:"编辑笔记",editimage:"编辑图片",editvideo:"编辑视频",noteLbl:"笔记（支持 Markdown）",caption:"说明",saveErr:"无法保存。浏览器存储空间可能已满或被阻止。",optHint:"语言和颜色会立即生效，并保存在此设备上。",language:"语言",cBg:"背景和启动画面",cSurf:"卡片",cInk:"文字和强调色",reset:"恢复默认",install:"安装应用",all:"全部",notes:"笔记",images:"图片",videos:"视频",pre:["柔和粉彩","极简暗色","暖桃色","薄荷绿"],emptyH:"你的小天地还是空的",emptyP:"点击 + 添加笔记、图片或视频。",noMatchH:"没有匹配项",noMatchP:"换个关键词，或选择“全部”。",storeH:"存储被阻止",storeP:"请允许此页面使用网站数据，以便将笔记和媒体保存在你的设备上。",open:"打开",image:"图片",edit:"编辑",close:"关闭",saved:"保存于",edited:"编辑于",phrases:["祝你今天愉快！","美到不行，天啊～","太绝了！","保持创意！","欢迎回到你的小天地！"]}};
+let lang='en',bad=0;
+try{lang=localStorage.getItem('ps-lang')||''}catch(e){}
+if(!T[lang])lang=/^vi/i.test(navigator.language)?'vi':/^zh/i.test(navigator.language)?'zh':'en';
+const tr=k=>T[lang][k]??T.en[k];
+const LANGS=[['vi','Tiếng Việt'],['en','English'],['zh','中文']];
+const drawLangs=()=>{$('#langs').innerHTML=LANGS.map(([c,n])=>`<button class="chip" data-l="${c}" lang="${c}" aria-pressed="${c==lang}">${n}</button>`).join('')};
+$('#langs').onclick=e=>{const b=e.target.closest('[data-l]');if(!b)return;lang=b.dataset.l;try{localStorage.setItem('ps-lang',lang)}catch(x){}applyLang()};
+function applyLang(){
+  R.lang=lang;
+  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=tr(e.dataset.t));
+  document.querySelectorAll('[data-tp]').forEach(e=>{e.placeholder=tr(e.dataset.tp);e.setAttribute('aria-label',e.placeholder)});
+  document.querySelectorAll('[data-tl]').forEach(e=>e.setAttribute('aria-label',tr(e.dataset.tl)));
+  drawChips();drawPre();drawLangs();draw();
+}
+
+/* ---------- Splash ---------- */
+$('#phrase').textContent=tr('phrases')[Math.random()*tr('phrases').length|0];
+const sp=$('#splash');let gone=false;
+const hide=()=>{if(gone)return;gone=true;sp.classList.add('out');setTimeout(()=>sp.remove(),800)};
+sp.onclick=hide;setTimeout(hide,1900);
+
+/* ---------- Theme ---------- */
+const PRE={'Soft pastel':{bg:'#EEF0FB',surface:'#FFFFFF',ink:'#3B2F5C'},'Dark minimal':{bg:'#121214',surface:'#1D1D22',ink:'#E9E7F2'},'Warm peach':{bg:'#F6D8C4',surface:'#FFF3EA',ink:'#5B2A1E'},'Mint':{bg:'#D8EEE2',surface:'#F6FFFA',ink:'#1E4B3C'}};
+const KEYS=['bg','surface','ink'];
+const cv=k=>getComputedStyle(R).getPropertyValue('--'+k).trim();
+const sync=()=>{KEYS.forEach(k=>{$('#c-'+k).value=cv(k)});$('meta[name=theme-color]').content=cv('bg')};
+function setTheme(t){
+  for(const k in t)R.style.setProperty('--'+k,t[k]);
+  sync();
+  try{localStorage.setItem('ps-theme',JSON.stringify(Object.fromEntries(KEYS.map(k=>[k,cv(k)]))))}catch(e){}
+}
+const drawPre=()=>{$('#pre').innerHTML=Object.entries(PRE).map(([n,c],j)=>`<button class="pre" data-p="${n}" style="background:${c.bg};color:${c.ink}"><span class="dot" style="background:${c.surface}"></span>${tr('pre')[j]}</button>`).join('')};
+$('#pre').onclick=e=>{const b=e.target.closest('[data-p]');if(b)setTheme(PRE[b.dataset.p])};
+KEYS.forEach(k=>$('#c-'+k).oninput=e=>setTheme({[k]:e.target.value}));
+$('#rst').onclick=()=>{try{localStorage.removeItem('ps-theme')}catch(e){}KEYS.forEach(k=>R.style.removeProperty('--'+k));sync()};
+$('#set').onclick=()=>{sync();$('#st').showModal()};
+
+/* ---------- Helpers ---------- */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const inl=s=>s.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i style="display:inline">$1</i>').replace(/`(.+?)`/g,'<code>$1</code>');
+const md=s=>esc(s).split('\n').map(l=>{let m;
+  if(m=l.match(/^#{1,3} (.+)/))return`<h4>${inl(m[1])}</h4>`;
+  if(m=l.match(/^[-*] (.+)/))return`<li>${inl(m[1])}</li>`;
+  return l.trim()?`<p>${inl(l)}</p>`:''}).join('');
+const fmt=t=>new Date(t).toLocaleDateString({en:'en-US',vi:'vi-VN',zh:'zh-CN'}[lang],{month:'short',day:'numeric',year:'numeric'});
+
+/* ---------- Data (IndexedDB via Dexie) ---------- */
+const db=new Dexie('panne-spot');db.version(1).stores({items:'++id,type,created'});
+let items=[],flt='all',q='',cur=null,draft=null,tmp=null;
+const urls=new Map();
+const src=it=>{if(!urls.has(it.id))urls.set(it.id,URL.createObjectURL(it.blob));return urls.get(it.id)};
+const drop=id=>{const u=urls.get(id);if(u){URL.revokeObjectURL(u);urls.delete(id)}};
+async function load(){items=await db.items.orderBy('created').reverse().toArray();draw()}
+
+/* ---------- Feed ---------- */
+const tagsHtml=i=>i.tags.length?`<div class="mt-3 flex flex-wrap gap-1.5">${i.tags.map(x=>`<button class="tag" data-tag="${esc(x)}">#${esc(x)}</button>`).join('')}</div>`:'';
+function card(i){
+  let top='';
+  if(i.type=='image')top=`<img src="${src(i)}" alt="${esc(i.title||tr('image'))}" loading="lazy">`;
+  if(i.type=='video')top=`<video src="${src(i)}#t=0.1" muted loop playsinline preload="metadata" onmouseenter="this.play().catch(()=>{})" onmouseleave="this.pause()"></video><span class="badge">${ic('play',12)}</span>`;
+  const body=i.type=='note'?(i.body?`<div class="prose mt-1 ${i.body.length>260?'clip':''}">${md(i.body)}</div>`:''):(i.body?`<p class="mute mt-1 text-sm">${esc(i.body)}</p>`:'');
+  return `<article class="card" data-id="${i.id}" tabindex="0" role="button" aria-label="${tr('open')} ${esc(i.title||i.type)}">${top}<div class="pad">${i.title?`<h3 class="text-lg font-semibold leading-tight">${esc(i.title)}</h3>`:''}${body}${tagsHtml(i)}<p class="mute mt-3 text-xs">${fmt(i.created)}</p></div></article>`;
+}
+function draw(){
+  const n=q.trim().toLowerCase();
+  const list=items.filter(i=>(flt=='all'||i.type==flt)&&(!n||(i.title+' '+i.body+' '+i.tags.join(' ')).toLowerCase().includes(n)));
+  $('#feed').innerHTML=list.map(card).join('');
+  const e=$('#empty');e.hidden=!!list.length;
+  const k=bad?'store':items.length?'noMatch':'empty';e.innerHTML=`<h2 class="disp text-2xl font-bold">${tr(k+'H')}</h2><p class="mute mt-1">${tr(k+'P')}</p>`;
+}
+const drawChips=()=>{$('#chips').innerHTML=[['all','all'],['note','notes'],['image','images'],['video','videos']].map(([v,k])=>`<button class="chip" data-f="${v}" aria-pressed="${v==flt}">${tr(k)}</button>`).join('')};
+$('#chips').onclick=e=>{const b=e.target.closest('[data-f]');if(!b)return;flt=b.dataset.f;[...$('#chips').children].forEach(c=>c.setAttribute('aria-pressed',c.dataset.f==flt));draw()};
+const setQ=v=>{$('#q').value=q=v;draw()};
+$('#q').oninput=e=>{q=e.target.value;draw()};
+$('#feed').onclick=e=>{
+  const t=e.target.closest('[data-tag]');if(t)return setQ(t.dataset.tag);
+  const c=e.target.closest('.card');if(c)view(+c.dataset.id);
+};
+$('#feed').onkeydown=e=>{if(e.key=='Enter'&&e.target.classList.contains('card'))view(+e.target.dataset.id)};
+
+/* ---------- Viewer / lightbox ---------- */
+function view(id){
+  const i=items.find(x=>x.id==id);if(!i)return;cur=i;
+  const m=i.type=='image'?`<img src="${src(i)}" alt="${esc(i.title||tr('image'))}" class="vm">`:i.type=='video'?`<video src="${src(i)}" controls autoplay playsinline class="vm"></video>`:'';
+  $('#vw-b').innerHTML=`${m}<div class="p-5">${i.title?`<h2 class="disp text-2xl font-bold">${esc(i.title)}</h2>`:''}<div class="prose mt-2">${i.type=='note'?md(i.body):esc(i.body)}</div>${tagsHtml(i)}<p class="mute mt-3 text-xs">${tr('saved')} ${fmt(i.created)}${i.updated>i.created+1000?`, ${tr('edited')} ${fmt(i.updated)}`:''}</p><div class="mt-5 flex gap-2"><button class="btn pri" data-a="edit"><i>${ic('pencil')}</i>${tr('edit')}</button><button class="btn sec" data-a="close">${tr('close')}</button></div></div>`;
+  $('#vw').showModal();
+}
+$('#vw').onclose=()=>{$('#vw-b').innerHTML=''};
+
+/* ---------- Create / edit ---------- */
+function edit(it,type,file){
+  draft=it?{...it}:{type,title:'',body:'',tags:[],blob:file};
+  const d=draft;
+  $('#e-h').textContent=tr((it?'edit':'new')+d.type);
+  $('#e-bl').textContent=tr(d.type=='note'?'noteLbl':'caption');
+  $('#e-title').value=d.title;$('#e-body').value=d.body;$('#e-tags').value=d.tags.join(', ');
+  let u='';if(d.blob){u=it?src(it):(tmp=URL.createObjectURL(d.blob))}
+  $('#e-pv').innerHTML=d.type=='image'?`<img src="${u}" alt="" class="vm">`:d.type=='video'?`<video src="${u}" controls playsinline class="vm"></video>`:'';
+  const b=$('#e-del');b.hidden=!d.id;delete b.dataset.arm;$('#e-dl').textContent=tr('del');
+  $('#ed').showModal();
+}
+$('#ed').onclose=()=>{if(tmp){URL.revokeObjectURL(tmp);tmp=null}$('#e-pv').innerHTML=''};
+async function save(){
+  const tags=[...new Set($('#e-tags').value.split(/[,#]/).map(s=>s.trim().toLowerCase()).filter(Boolean))];
+  const r={...draft,title:$('#e-title').value.trim(),body:$('#e-body').value.trim(),tags,updated:Date.now()};
+  if(r.type=='note'&&!r.title&&!r.body)return $('#e-body').focus();
+  try{if(r.id)await db.items.put(r);else{r.created=Date.now();await db.items.add(r)}}
+  catch(e){$('#e-bl').textContent=tr('saveErr');return}
+  $('#ed').close();load();
+}
+async function del(){
+  const b=$('#e-del');
+  if(!b.dataset.arm){b.dataset.arm=1;$('#e-dl').textContent=tr('del2');return}
+  await db.items.delete(draft.id);drop(draft.id);$('#ed').close();load();
+}
+
+/* ---------- Actions ---------- */
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-a]')?.dataset.a;
+  if(a=='save')save();else if(a=='del')del();
+  else if(a=='close')e.target.closest('dialog').close();
+  else if(a=='edit'){$('#vw').close();edit(cur)}
+  const n=e.target.closest('[data-new]')?.dataset.new;
+  if(n){$('#fab').classList.remove('open');n=='note'?edit(null,'note'):$(n=='image'?'#fi':'#fv').click()}
+  if(e.target.closest('#fab-b')){const o=$('#fab').classList.toggle('open');$('#fab-b').setAttribute('aria-expanded',o)}
+  else if(!e.target.closest('#fab'))$('#fab').classList.remove('open');
+});
+[['#fi','image'],['#fv','video']].forEach(([s,t])=>$(s).onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)edit(null,t,f)});
+document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d)d.close()}));
+
+/* ---------- Install + offline ---------- */
+let dip=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();dip=e;$('#inst').hidden=false});
+addEventListener('appinstalled',()=>{$('#inst').hidden=true});
+$('#inst').onclick=async()=>{if(!dip)return;dip.prompt();await dip.userChoice;dip=null;$('#inst').hidden=true};
+if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+sync();
+applyLang();
+load().catch(()=>{bad=1;draw()});
+</script>
+</body>
+</html>
